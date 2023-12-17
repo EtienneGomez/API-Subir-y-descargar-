@@ -1,4 +1,6 @@
 package com.api.downupload.controller;
+import com.api.downupload.model.Documento;
+
 
 import java.util.List;
 import java.util.Arrays;
@@ -23,53 +25,49 @@ import com.api.downupload.service.IFileSytemStorage;
 
 @RestController
 @RequestMapping("/api")
+// Importaciones y anotaciones de clase...
+
 public class FileController {
-	
+
 	@Autowired
 	IFileSytemStorage fileSytemStorage;
-	
-	@PostMapping("/uploadfile")
-	public ResponseEntity<FileResponse> uploadSingleFile (@RequestParam("file") MultipartFile file) {
-		
-		String upfile = fileSytemStorage.saveFile(file);
 
-        String fileDownloadUri = ServletUriComponentsBuilder.fromCurrentContextPath()
-                .path("/api/download/")
-                .path(upfile)
-                .toUriString();
-        
-		return ResponseEntity.status(HttpStatus.OK).body(new FileResponse(upfile,fileDownloadUri,"File uploaded with success!"));
+	@PostMapping("/uploadfile")
+	public ResponseEntity<FileResponse> uploadSingleFile(@RequestParam("file") MultipartFile file) {
+		Documento documento = fileSytemStorage.saveFile(file);
+
+		String fileDownloadUri = ServletUriComponentsBuilder.fromCurrentContextPath()
+				.path("/api/download/")
+				.path(documento.getIdDocumento().toString())
+				.toUriString();
+
+		return ResponseEntity.status(HttpStatus.OK)
+				.body(new FileResponse(documento.getNombreDocumento(), fileDownloadUri, "File uploaded with success!"));
 	}
-	
+
 	@PostMapping("/uploadfiles")
-	public ResponseEntity<List<FileResponse>> uploadMultipleFiles (@RequestParam("files") MultipartFile[] files) {
-		
-		List<FileResponse> responses = Arrays.asList(files)
-				.stream()
-				.map(
-	            	file -> {
-	                	String upfile = fileSytemStorage.saveFile(file);
-	                    String fileDownloadUri = ServletUriComponentsBuilder.fromCurrentContextPath()
-	                            .path("/api/download/")
-	                            .path(upfile)
-	                            .toUriString();
-	                    return new FileResponse(upfile,fileDownloadUri,"File uploaded with success!");
-	                }
-            )
-            .collect(Collectors.toList());
-        
+	public ResponseEntity<List<FileResponse>> uploadMultipleFiles(@RequestParam("files") MultipartFile[] files) {
+		List<FileResponse> responses = Arrays.stream(files)
+				.map(file -> {
+					Documento documento = fileSytemStorage.saveFile(file);
+					String fileDownloadUri = ServletUriComponentsBuilder.fromCurrentContextPath()
+							.path("/api/download/")
+							.path(documento.getIdDocumento().toString())
+							.toUriString();
+					return new FileResponse(documento.getNombreDocumento(), fileDownloadUri, "File uploaded with success!");
+				})
+				.collect(Collectors.toList());
+
 		return ResponseEntity.status(HttpStatus.OK).body(responses);
 	}
-	
-	
-	@GetMapping("/download/{filename:.+}")
-    public ResponseEntity<Resource> downloadFile(@PathVariable String filename) {
-       
-        Resource resource = fileSytemStorage.loadFile(filename);
 
-        return ResponseEntity.ok()
-        		.header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + resource.getFilename() + "\"")
-        		.body(resource);
-    }
+	@GetMapping("/download/{id}")
+	public ResponseEntity<Resource> downloadFile(@PathVariable Long id) {
+		Resource resource = fileSytemStorage.loadFile(id);
+		String filename = "downloaded_file"; // Puedes obtener el nombre del archivo de otra manera si es necesario
 
+		return ResponseEntity.ok()
+				.header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+				.body(resource);
+	}
 }
